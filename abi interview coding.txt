@@ -1,0 +1,121 @@
+node {
+  stage('Code checkout') {
+    git 'git url'
+  }
+  stage('Code compilation') {
+   def mvnHome = tool name: 'maven', type: 'maven'
+   sh "${mvnHome}/bin/mvn packager"
+   sh 'mv target/*.war target/myapp.war'
+  }
+  stage('SonarQube Check'){
+   def mvnHome = tool name: 'maven', type: 'maven'
+    withSonarQuibeEnv('sonar') {
+     sh "${mvnHome}/bin/mvn sonar:sonar"
+    }
+  }
+  stage('Docker image') {
+   sh 'docker build -t usrname/imgname:tag .'
+  }
+  stage('Nexus Push Image') {
+   sh "docker login -u user -p ${nexuspass} ip"
+   sh "docker tag image:tag ip/image:tag"
+   sh "docker push image name:tag"
+  }
+  stage('Remove prev existing container') {
+   try {
+      sh 'docker rm -f containername'
+   }catch(error){
+      // do noting if there is no exception
+   }
+  stage('Deployment stage'){
+   sh 'kubectl apply -f deploymnent-prod.yaml"
+  }
+  post {
+   success {
+    echo 'Pipeline completed successfully'
+    mail to: ''
+      subject: "Success: Pipeline deployed successfully",
+      body: 
+   }
+   failure {
+    echo 'Pipeline failed'
+    mail to: ''
+      subject: "Failed: Pipeline failed check the console",
+      body
+	
+   }
+  }
+}
+
+
+
+FROM tomcat:9
+ENV CATALINA_HOME /usr/local/tomcat
+ENV PATH $CATALINA_HOME/bin:$PATH
+COPY path of war file $CATALINA_HOME/webapps/
+EXPOSE 8080
+CMD ["Catalina.sh", "run"]
+
+
+
+
+
+
+
+Deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-deployment
+spec:
+ replicas: 15
+ selector: 
+   matchLabels:
+     app:webapp
+ template:
+  metadata:
+   labels:
+    app:webapp
+  spec:
+   containers:
+   - name: webapp-container
+     image: repo/image:tag
+     ports:
+     - containerPort: 80
+     volumeMounts:
+     - name: data-volume
+       mountPath: /
+     volumes:
+     - name: data-volume
+       persistentVolumeClaim:
+        claimName: data-pvc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
